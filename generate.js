@@ -48,7 +48,8 @@ export default async function handler(req, res) {
       const error = await response.json();
       if (
         error.error &&
-        error.error.includes("exceeded your monthly included credits")
+        error.error.includes("You have exceeded your monthly included credits for Inference Providers. Subscribe to PRO to get 20x more monthly included credits.
+")
       ) {
         continue;
       } else {
