@@ -1,30 +1,41 @@
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end(); // Handle preflight
-  }
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   const HF_KEYS = (process.env.HF_KEYS || "").split(",");
-  const { prompt } = req.body;
+
+  // Support both string and object for 'inputs'
+  const { inputs, parameters } = req.body;
+
+  let prompt, image;
+  if (typeof inputs === "string") {
+    prompt = inputs;
+  } else if (typeof inputs === "object") {
+    prompt = inputs.prompt;
+    image = inputs.image;
+  }
 
   if (!prompt) {
     return res.status(400).json({ error: "Prompt is required" });
   }
 
-  const payload = {
-    inputs: prompt,
-    parameters: {
-      num_inference_steps: 50,
-      guidance_scale: 7.5
-    }
-  };
+  const payload = image
+    ? {
+        inputs: {
+          prompt: prompt,
+          image: image,
+        },
+        parameters: parameters || {},
+      }
+    : {
+        inputs: prompt,
+        parameters: parameters || {},
+      };
 
   for (const key of HF_KEYS) {
     try {
@@ -34,9 +45,9 @@ export default async function handler(req, res) {
           method: "POST",
           headers: {
             Authorization: `Bearer ${key}`,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         }
       );
 
@@ -62,7 +73,7 @@ export default async function handler(req, res) {
           .json({ error: error.error || "HuggingFace API error" });
       }
     } catch (err) {
-      console.error("Key failed, trying next:", err.message);
+      console.error("Key failed:", err);
     }
   }
 
